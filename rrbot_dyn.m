@@ -51,15 +51,55 @@ PE = P1 + P2;
 L = KE - PE;
 
 
-%% STEP4: Euler-Lagrangian Equations of Motion
+%% STEP4a: Euler-Lagrangian Equations of Motion
 % EOM
 DL_Dq = jacobian(L, q);  % D denotes partial diff and d is differentiation
 DL_Dqd = jacobian(L, qd);
 dDL_dtDqd = jacobian(DL_Dqd, [q; qd]) * [qd; qdd];          % Chain Rule
 EOM = dDL_dtDqd - DL_Dq' - u;
 EOM = simplify(EOM);
-display(EOM(1));
-display(EOM(2));
+display(EOM);
+
+
+%% STEP4b: Simplify to get it in manipulator form:  M*qdd + C*qd + g = tau
+% Finding g(q) term... by setting qd and qdd to zero
+global EOM_gravity_term;    % to use in ode function
+EOM_gravity_term = subs(EOM, [q1d, q1dd, q2d, q2dd, u1, u2], [0,0,0,0,0,0]);
+EOM_gravity_term = simplify(EOM_gravity_term);
+display(EOM_gravity_term);
+
+% Finding M(q) term... by setting qd to zero and subtracting g(q) from that eqaution
+EOM_Mass_term = subs(EOM, [q1d, q2d, u1, u2], [0,0,0,0]);
+EOM_Mass_term = EOM_Mass_term - EOM_gravity_term;
+EOM_Mass_term = simplify(EOM_Mass_term);
+display(EOM_Mass_term);
+% Mass matrix is n*n for n-DOF robot.. we need to separate out those q1dd
+% and q2dd terms and generate the mass matrix
+global M;   
+M = zeros(2,2);
+M = jacobian(EOM_Mass_term, qdd);
+M = simplify(M);
+display(M);
+
+% Finding C(q,qd) term... by subtracting M and g terms
+global EOM_Coriolis_term;
+EOM_Coriolis_term = subs(EOM, [u1, u2], [0,0]);
+EOM_Coriolis_term = EOM_Coriolis_term - EOM_Mass_term - EOM_gravity_term;
+EOM_Coriolis_term = simplify(EOM_Coriolis_term);
+display(EOM_Coriolis_term);
+
+% Finding tau term... by setting q,qd,qdd to zero..except for u
+EOM_tau_term = subs(EOM, [q1, q2, q1d, q1dd, q2d, q2dd], [0,0,0,0,0,0]);
+EOM_tau_term = 0 - EOM_tau_term;        % taking to RHS
+EOM_tau_term = simplify(EOM_tau_term);
+display(EOM_tau_term);
+
+% Write in manipulator form and verify if we get back same EOM
+EOM_manipForm = M*qdd + EOM_Coriolis_term + EOM_gravity_term - EOM_tau_term;    % M*qdd = EOM_Mass_term
+EOM_manipForm = simplify(EOM_manipForm);
+display(EOM_manipForm);
+% isequal(EOM,EOM_manipForm)    % some terms are taken common out.. hence
+% not getting able to verify in code, but verified manually!!
 
 
 %% STEP5: State Space Representation
@@ -70,8 +110,6 @@ X(2) = q2;
 X(3) = q1d;
 X(4) = q2d;
 
-
-
 eq1 = EOM(1);
 eq2 = EOM(2);
 sol = solve([eq1==0, eq2==0], [q1dd, q2dd]);
@@ -79,6 +117,7 @@ display(sol.q1dd);
 display(sol.q2dd);
 
 % State Space Form
+global Xd       % To use it in ODE function later
 Xd = [X(3); X(4); sol.q1dd; sol.q2dd];
 disp("-----State Space Representation-----");
 display(Xd);
@@ -88,4 +127,60 @@ display(Xd);
 % simplify(sol.q2dd)
 
 
-%%
+%% STEP6: Feedack Linearized Control Law
+% [1] For virtual input v = qdd (double integrator), let's design a
+% state-feedback controller
+
+% This is correct, if my states were X = [q1,q1d,q2,q2d]'
+% A = [0  1;
+%      0  0];         % For 1 joint
+% A = blkdiag(A, A);  % For 2 joints
+% B = [0;
+%      1];            % For 1 joint
+% B = blkdiag(B, B);  % For 2 joints
+
+% The states I defined on top is X = [q1,q2,q1d,q2d]'
+A = [0 0 1 0;
+     0 0 0 1;
+     0 0 0 0;
+     0 0 0 0];
+
+B = [0 0;
+     0 0;
+     1 0;
+     0 1];
+
+% [2] Controllability test
+rankCO = rank(ctrb(A,B));
+fprintf("----Controllabiltiy test for virtual control input?: ");
+if (rankCO >= height(q))
+    fprintf("YES----\n");
+else
+    fprintf("NO----\n");
+end
+
+% [3] Design State-feedback Control
+% Let eigenvalues for state-feedback design be as follows
+% lambda = [-7.1+i, -4.5, -7.1-i, -1.9];    % When I made a mistake with A matrix, wasted my time tuning this
+% lambda = [-2, -5, -3, -4];                % Last asignment values too low to push the rrbot to upward config
+lambda = [-13, -10, -12, -6];   
+A = double(A);
+B = double(B);
+global K;                   % To access this in other scripts
+% K diemension should be m*n.. Here, 2*4
+K = place(A, B, lambda);
+fprintf("-----State Feedback Control-----\n");
+fprintf("lambda = \n");
+disp(lambda);
+fprintf("K = \n");
+disp(K);
+
+
+
+
+
+
+
+
+
+

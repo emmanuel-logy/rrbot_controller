@@ -11,7 +11,23 @@ The rrbot is modelled in MATLAB. Using state-space representation, various analy
   <img src="media/rrbot_control.gif" height="360" width="672" />
 </p>
 
+---
 
+
+## Plots & Analysis
+
+The plot on the LHS in Figure 1 denotes the system response in MATLAB simulation.
+The plot on the RHS in Figure 2 denotes the system response in Gazebo Physics Engine.
+The simlarity in the plots shows the design done on MATLAB works well in practice in a physics engine too.
+
+
+<p float="left">
+  <img src="media/plot_comparison.png" height="580" width="1080" />
+</p>
+
+
+
+---
 <!--
 ---
 ## High Level View
