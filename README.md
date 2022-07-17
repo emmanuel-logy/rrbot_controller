@@ -1,4 +1,4 @@
-# Feedback-linearized Controller for Trajectory Tracking of rrbot
+## Feedback-linearized Controller for Trajectory Tracking of rrbot
 
 ## Overview
 The rrbot is modelled in MATLAB. Using state-space representation, various analysis like the Stablity test, Controllability test, Obsevability test were done. Further, a state-feedback controller was designed to move the robot from an initial condition of 30 degrees to 0 degrees (i.e. an upright position) as shown in the demo. 
